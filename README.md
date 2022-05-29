@@ -1,4 +1,4 @@
-##Projet TinyPet
+#Projet TinyPet
 
 Ce projet a été réalisé par SALIFOU Moussa, BLANCHET Alexandre, ROBERT Matthias
 
