@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<title>Tiny Pet</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<script src="https://unpkg.com/mithril/mithril.js"></script>
+		<meta name="google-signin-scope" content="profile email">
+		<meta name="google-signin-client_id" content="380380507341-n7sr59njqp14heu9rk6v3ik5erbkmr5c.apps.googleusercontent.com">
+		<meta name="google-signin-plugin_name" content="stop bugging me">
+		<script src="https://apis.google.com/js/platform.js"></script>   
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+  	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script> 
+	</head>
+	<body>
+		<script>
+			var navbar={
+			searchtag:null,
+			view: function() {
+				return m('nav', {class:"navbar navbar-expand-lg navbar-dark bg-dark"}, [
+					m('div',{class:'container-fluid'},
+						m('a',{class:"navbar-brand"}, "TinyPet"),
+						m("ul",{class:"navbar-nav me-auto mb-2 mb-lg-0"},
+							m("li",{class:"nav-item"}, 
+								m('a',{class:"nav-link", role:"button", onclick: function(e) {m.route.set("/new")}},"Créer une pétition")
+							),
+							m("li",{class:"nav-item"},
+								m('a',{class:"nav-link", role:"button", onclick: function(e) {Petition.loadListOwner(),m.route.set("/myPet")}},"Les pétitions signées")
+							),
+							m("li",{class:"nav-item"},
+								m('a',{class:"nav-link", role:"button", onclick: function(e) {Petition.loadList(),m.route.set("/home")}},"Le top 100 des pétitions")
+							),
+							m("li",{class:"nav-item"}, 
+								m('a',{class:"nav-link", role:"button",
+									onclick: function(e) {
+									gapi.auth2.getAuthInstance().signOut().then(function () {
+										console.log('User signed out');
+										location.reload();
+									})}},"Déconnexion")
+							),
+						),
+						m("form",{class:"d-flex"}, [
+							m("input",{class:"form-control me-2", type:"search", placeholder:"Search", 
+								"aria-label":"Search",
+								oninput : function(e) {
+									navbar.searchtag = e.target.value
+								}
+							}),
+							m('button',{class :'btn btn-outline-success', type:"submit",
+								onclick : function() {
+										if(navbar.searchtag==null) {
+												alert("Veuillez renseignez un tag !");
+										} else {
+										Petition.search(navbar.searchtag),
+										navbar.searchtag=null
+								}}
+							},"Search")
+						])    
+					)	
+				])
+			}}
+			var CreatePetition={
+				titre : ' ',
+				body : ' ',
+				owner : ' ',
+				tag:'',
+				User : ' ',
+			}
+			var NewPetitionView={
+				view: function() {
+					return m('div',{}, [
+						m("div",{},m(navbar)),
+						m("div",{class:"container-sm"}, [
+							m("h2",{}, "Créer une pétition"),
+							m('form',{}, [
+								m("div", {class:"mb-3"}, [
+									m("label",{for:"title", class:"form-label"}, "Titre"),
+									m("input", {type:"text", class:"form-control", id:'title',
+										oninput: function (e) {
+											CreatePetition.titre = e.target.value
+										}
+									})
+								]),
+								m("div", {class:"mb-3"}, [
+									m("label",{for:"description", class:"form-label"}, "Contenu"),
+									m("textarea",{class:"form-control", id:'description', rows:"3",
+										oninput: function (e) {
+											CreatePetition.body = e.target.value
+										}
+									})
+								]),
+								m("div", {class:"mb-3"}, [
+									m("label",{for:"tag", class:"form-label"}, "Tag"),
+									m("input",{type:"text", class:"form-control", id:'tag',
+										oninput: function (e) {
+											CreatePetition.tag = e.target.value
+										}
+									})
+								]),
+								m('button',{class:'btn btn-primary', type:"submit",
+									onclick: function(e) {
+										if(document.getElementById('title').value=="" || document.getElementById('description').value=="" ){
+											alert("Veuillez renseigner le titre et la description !");
+										}
+										else Petition.save();
+									}
+								},"Submit")
+							])
+						])
+					])
+				}	
+			}		
+			var Petition = {
+				ID:"",
+				nextToken:"",
+				listtop100: [],
+				listowner: [],
+				listpetitiontag: [],
+				loadList: function() {
+					return m.request({
+						method: "GET",
+						url: "_ah/api/myApi/v1/entitycollection/"
+					})
+					.then(function(result) {
+						Petition.listtop100 = result.items
+						console.log("got:",result.items) 
+					})
+				},
+				loadListOwner: function() {
+					return m.request({
+						method: "GET",
+						url: "_ah/api/myApi/v1/collectionresponse_entity/"+'?access_token='+encodeURIComponent(Petition.ID)
+					})
+					.then(function(result) {
+						Petition.listowner = result.items
+						console.log("got:",result.items)
+					})
+				},
+				save: function() {
+					console.log("saving...",CreatePetition.current)
+					var data={'titre': CreatePetition.titre,'body':CreatePetition.body, 'tag' : CreatePetition.tag}
+					return m.request({
+						method: "POST",
+						url: "_ah/api/myApi/v1/addPetition"+'?access_token='+encodeURIComponent(Petition.ID),
+						params: data,
+					})
+					.then(function(result) {
+						console.log("got:",result)
+						alert("Pétition créée...");
+						m.route.set("/home")
+					})
+				},
+				sign: function(key) {
+					console.log("signing...",key)
+					var data={'key': key}
+					return m.request({
+						method: "POST",
+						url: "_ah/api/myApi/v1/signPetition"+'?access_token='+encodeURIComponent(Petition.ID),
+						params: data,
+					})
+					.then(function(result) {
+						console.log("got:",result.key.name)
+						if (result.key.name == "false") {
+							alert("Vous venez de signer la pétition");
+						}
+						else alert("Vous avez déjà signé cette pétition");
+					})
+				},
+				search : function(tag) {
+					console.log("searching...", tag)
+					var data={'tag':tag}
+					return m.request({
+						method: "GET",
+						url : "_ah/api/myApi/v1/entitycollection/"+tag,
+						params: data,
+					})
+					.then(function(result) {
+						console.log("got:",result)
+						Petition.listpetitiontag = result.items
+						m.route.set("/petitionByTag")
+					})
+				}
+			}	
+			var ListPetitionView = {
+				oninit: Petition.loadList,
+				view: function() {
+					return m('div',{}, [
+						m("div",{},m(navbar)),
+						m("div",{class:"container"}, [
+							m('h2',{},"Le top 100 des pétitions"),
+							m("div",{class:"container overflow-hidden"}, [
+								m("div",{class:"row g-2"}, [
+									Petition.listtop100.map(function(item) {
+										return m('div',{class:"g-col-6"}, [
+											m("div",{class:"card text-center"}, [
+												m('div',{class:"card-header"}, item.properties.titre + " - Nombre de signatures : " + item.properties.nbSignatory),
+												m('div',{class:"card-body"}, [
+													m('p',{class:"card-text"}, item.properties.body),
+													m('button',{class:'btn btn-primary',
+														onclick: function(e) {
+															Petition.sign(item.key.name,Petition.ID)
+														}
+													},"Signer"), 
+													m('p',{class:"card-text"}, item.properties.tag),
+													m('div',{class:"card-footer"}, "Publié par " + item.properties.owner)
+												])
+											])
+										])	
+									})
+								])
+							])
+						])
+					])
+				}
+			}
+			var UserListPetitionView = {
+				view: function() {
+				return m('div',{}, [
+					m("div",{},m(navbar)),
+						m("div",{class:"container"}, [
+							m('h2',{},"Les petitions signées par vous"),
+							m("div",{class:"container overflow-hidden"}, [
+								m("div",{class:"row g-2"}, [
+									Petition.listowner.map(function(item) {
+										return m('div',{class:"g-col-6"}, [
+											m("div",{class:"card text-center"}, [
+												m('div',{class:"card-header"}, item.properties.titre + " - Nombre de signatures : " + item.properties.nbSignatory),
+												m('div',{class:"card-body"}, [
+													m('p',{class:"card-text"}, item.properties.body),
+													m('p',{class:"card-text"}, item.properties.tag),
+													m('div',{class:"card-footer"}, "Publié par " + item.properties.owner)
+												])
+											])
+										])	
+									})
+								])
+							])
+						])
+					])
+				}
+			} 
+			var ListPetitionByTagView = {
+				view: function() {
+					return m('div', [
+					m('div',{}, m(navbar)),
+					m('div',{},"Petitions trouvée via le tag recherché"),
+					m('table', {class:'table is-striped'},[
+						m('tr', [
+										m('th', {width:"200px"}, "titre"),
+										m('th', {width:"200px"}, "description"),
+										m('th', {width:"200px"}, "tag"),
+							m('th', {width:"50px"}, "nombre de signatures"),
+						]),
+						Petition.listpetitiontag.map(function(item) {
+							return m("tr", [
+												m('td', m('label', item.properties.titre)),
+												m('td', m('label', item.properties.body)),
+												m('td', m('label', item.properties.tag)),
+								m('td', m('label', item.properties.nbSignatory)), 
+							])
+						})
+					])
+				])
+				}
+			}
+			function onSignIn(googleUser) {
+				var profile = googleUser.getBasicProfile();
+				Petition.ID=googleUser.getAuthResponse().id_token;
+				m.route.set("/home")
+			}
+			var Login = {
+				view: function() {
+				return m('div', [
+					m('div',{}, m(navbar)),
+					m('div',{class:'container'}, [
+						m("h3",{}, 'Veuillez vous authentifier'),
+						m("div", {"class":"g-signin2", "data-theme":"dark", "data-onsuccess": "onSignIn"}),
+					])
+				])}
+			}
+			m.route(document.body, "/home", {
+				"/home": { onmatch: function() {
+					if (Petition.ID=="") {m.route.set("/login")}
+					else return ListPetitionView
+				}},
+				"/new" : { onmatch: function(){
+					if (Petition.ID=="") {m.route.set("/login")}
+					else return NewPetitionView
+				}},
+				"/myPet" : { onmatch: function(){
+					if (Petition.ID=="") {m.route.set("/login")}
+					else return UserListPetitionView
+				}},
+				"/petitionByTag" : { onmatch: function() {
+					return ListPetitionByTagView
+				}},
+				"/login": Login
+			}) 
+		</script>
+	</body>
+</html>
